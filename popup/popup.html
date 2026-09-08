@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Solve & Organize</title>
+<link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <span class="brand-mark">&lt;/&gt;</span>
+      <div>
+        <h1>Solve &amp; Organize</h1>
+        <p class="subtitle">Every accepted solution, one repo.</p>
+      </div>
+    </div>
+    <span id="connStatus" class="status-dot" title="Not checked yet"></span>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab-btn active" data-tab="settings">Settings</button>
+    <button class="tab-btn" data-tab="activity">Activity</button>
+    <button class="tab-btn" data-tab="filter">Filter</button>
+  </nav>
+
+  <main>
+    <section id="tab-settings" class="tab-panel active">
+      <!-- 1-Click GitHub Login Section -->
+      <div id="authSection" class="auth-card">
+        <!-- Logged Out State -->
+        <div id="loggedOutView">
+          <button id="signInBtn" class="github-login-btn">
+            <svg height="18" width="18" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path>
+            </svg>
+            Sign in with GitHub (1-Click)
+          </button>
+        </div>
+
+        <!-- Device Flow Code Prompt -->
+        <div id="devicePromptView" style="display: none;" class="device-box">
+          <p class="device-label">Enter this code on GitHub to authorize:</p>
+          <div class="code-container">
+            <span id="userCodeText" class="user-code">----</span>
+            <button id="copyCodeBtn" class="copy-btn" title="Copy code">Copy</button>
+          </div>
+          <a id="authUrlLink" href="#" target="_blank" rel="noopener noreferrer" class="auth-link-btn">
+            Open GitHub to Authorize ↗
+          </a>
+          <div class="polling-indicator">
+            <span class="spinner"></span>
+            <span id="deviceStatusText">Waiting for confirmation...</span>
+          </div>
+          <button id="cancelAuthBtn" class="link-btn">Cancel</button>
+        </div>
+
+        <!-- Logged In State -->
+        <div id="loggedInView" style="display: none;" class="profile-card">
+          <div class="profile-info">
+            <img id="userAvatar" class="avatar" src="" alt="Avatar" />
+            <div>
+              <div id="userName" class="user-name">Username</div>
+              <div id="userLogin" class="user-login">@username</div>
+            </div>
+          </div>
+          <button id="signOutBtn" class="sign-out-btn">Sign out</button>
+        </div>
+      </div>
+
+      <!-- Repo Configuration -->
+      <div class="row">
+        <label>
+          Repo owner
+          <input type="text" id="owner" placeholder="your-username" />
+        </label>
+        <label>
+          Repo name
+          <input type="text" id="repo" placeholder="dsa-solutions" />
+        </label>
+      </div>
+      <div class="row">
+        <label>
+          Branch
+          <input type="text" id="branch" placeholder="main" />
+        </label>
+        <label class="checkbox-row">
+          <input type="checkbox" id="groupByTopic" checked />
+          Group by topic (e.g. Arrays)
+        </label>
+      </div>
+      <div class="row">
+        <label class="checkbox-row" style="grid-column: span 2;">
+          <input type="checkbox" id="groupByDifficulty" checked />
+          Group sections by difficulty (Basic / Easy / Medium / Hard)
+        </label>
+      </div>
+      <div class="row">
+        <label class="checkbox-row" style="grid-column: span 2;">
+          <input type="checkbox" id="onlyAddIfNotExists" checked />
+          Skip push if problem already exists in platform folder
+        </label>
+      </div>
+
+      <div class="btn-row">
+        <button id="saveBtn" class="primary">Save settings</button>
+        <button id="testBtn" class="secondary">Test connection</button>
+      </div>
+      <p id="settingsMsg" class="msg"></p>
+
+      <!-- Advanced PAT Input Drawer -->
+      <details class="help">
+        <summary>Advanced / Manual Personal Access Token</summary>
+        <div style="margin-top: 8px;">
+          <label>
+            GitHub Personal Access Token (classic or fine-grained)
+            <input type="password" id="token" placeholder="ghp_..." autocomplete="off" />
+          </label>
+        </div>
+      </details>
+    </section>
+
+    <section id="tab-activity" class="tab-panel">
+      <div class="btn-row">
+        <button id="refreshActivity" class="secondary">Refresh</button>
+        <button id="clearActivity" class="secondary">Clear log</button>
+      </div>
+      <ul id="activityList" class="activity-list">
+        <li class="empty">No pushes yet — solve something on LeetCode, Codeforces, CodeChef, GeeksforGeeks, HackerRank, AtCoder, or NeetCode.</li>
+      </ul>
+    </section>
+
+    <section id="tab-filter" class="tab-panel">
+      <p class="hint">Pull your live index.json from the repo and browse by topic.</p>
+      <div class="btn-row">
+        <button id="loadTopics" class="secondary">Load topics &amp; problems</button>
+      </div>
+      <div class="row" style="margin-top: 10px;">
+        <select id="topicSelect" disabled>
+          <option value="">All topics</option>
+        </select>
+        <select id="diffSelect" disabled>
+          <option value="">All difficulties</option>
+          <option value="School">School</option>
+          <option value="Basic">Basic</option>
+          <option value="Easy">Easy</option>
+          <option value="Medium">Medium</option>
+          <option value="Hard">Hard</option>
+        </select>
+      </div>
+      <ul id="filterResults" class="activity-list"></ul>
+    </section>
+  </main>
+
+  <script src="popup.js" type="module"></script>
+</body>
+</html>

@@ -1,0 +1,94 @@
+{
+  "manifest_version": 3,
+  "name": "Solve & Organize — Competitive Coding Repo Sync",
+  "version": "0.1.0",
+  "description": "Automatically pushes every accepted LeetCode, HackerRank, GeeksforGeeks, Codeforces, CodeChef, AtCoder, and NeetCode solution into one organised GitHub repo.",
+  "permissions": ["storage", "alarms"],
+  "host_permissions": [
+    "https://api.github.com/*",
+    "https://github.com/*",
+    "https://leetcode.com/*",
+    "https://www.hackerrank.com/*",
+    "https://*.geeksforgeeks.org/*",
+    "https://codeforces.com/*",
+    "https://www.codechef.com/*",
+    "https://atcoder.jp/*",
+    "https://neetcode.io/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://leetcode.com/problems/*"],
+      "js": ["content-scripts/leetcode-inject.js"],
+      "world": "MAIN",
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://leetcode.com/problems/*"],
+      "js": ["content-scripts/leetcode-bridge.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://www.hackerrank.com/challenges/*"],
+      "js": ["content-scripts/hackerrank.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://www.geeksforgeeks.org/problems/*",
+        "https://practice.geeksforgeeks.org/problems/*"
+      ],
+      "js": ["content-scripts/geeksforgeeks.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://codeforces.com/problemset/problem/*",
+        "https://codeforces.com/contest/*/problem/*",
+        "https://codeforces.com/gym/*/problem/*"
+      ],
+      "js": ["content-scripts/codeforces.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://www.codechef.com/problems/*",
+        "https://www.codechef.com/practice/*",
+        "https://www.codechef.com/*/problems/*"
+      ],
+      "js": ["content-scripts/codechef.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://atcoder.jp/contests/*/tasks/*"
+      ],
+      "js": ["content-scripts/atcoder.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://neetcode.io/problems/*",
+        "https://neetcode.io/practice/*"
+      ],
+      "js": ["content-scripts/neetcode.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
