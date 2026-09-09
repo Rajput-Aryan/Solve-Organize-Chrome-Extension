@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>Solve & Organize</title>
+<title>Solve &amp; Organize</title>
 <link rel="stylesheet" href="popup.css" />
 </head>
 <body>
@@ -25,35 +25,8 @@
 
   <main>
     <section id="tab-settings" class="tab-panel active">
-      <!-- 1-Click GitHub Login Section -->
+      <!-- GitHub PAT Authentication Card -->
       <div id="authSection" class="auth-card">
-        <!-- Logged Out State -->
-        <div id="loggedOutView">
-          <button id="signInBtn" class="github-login-btn">
-            <svg height="18" width="18" viewBox="0 0 16 16" fill="currentColor">
-              <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path>
-            </svg>
-            Sign in with GitHub (1-Click)
-          </button>
-        </div>
-
-        <!-- Device Flow Code Prompt -->
-        <div id="devicePromptView" style="display: none;" class="device-box">
-          <p class="device-label">Enter this code on GitHub to authorize:</p>
-          <div class="code-container">
-            <span id="userCodeText" class="user-code">----</span>
-            <button id="copyCodeBtn" class="copy-btn" title="Copy code">Copy</button>
-          </div>
-          <a id="authUrlLink" href="#" target="_blank" rel="noopener noreferrer" class="auth-link-btn">
-            Open GitHub to Authorize ↗
-          </a>
-          <div class="polling-indicator">
-            <span class="spinner"></span>
-            <span id="deviceStatusText">Waiting for confirmation...</span>
-          </div>
-          <button id="cancelAuthBtn" class="link-btn">Cancel</button>
-        </div>
-
         <!-- Logged In State -->
         <div id="loggedInView" style="display: none;" class="profile-card">
           <div class="profile-info">
@@ -63,7 +36,31 @@
               <div id="userLogin" class="user-login">@username</div>
             </div>
           </div>
-          <button id="signOutBtn" class="sign-out-btn">Sign out</button>
+          <button id="signOutBtn" class="sign-out-btn" title="Remove token and disconnect">Disconnect</button>
+        </div>
+
+        <!-- Logged Out State / Token Input View -->
+        <div id="loggedOutView">
+          <div class="token-header">
+            <span class="token-title">GitHub Authentication</span>
+            <a id="generateTokenLink" href="https://github.com/settings/tokens/new?scopes=repo&description=Solve-and-Organize-Chrome-Extension" target="_blank" rel="noopener noreferrer" class="token-help-link">
+              Generate Token ↗
+            </a>
+          </div>
+
+          <div class="token-guide">
+            <div class="guide-title">📌 How to get your Personal Access Token:</div>
+            <ol class="guide-steps">
+              <li>Click <strong>Generate Token ↗</strong> above (or visit <a href="https://github.com/settings/tokens" target="_blank" rel="noopener">GitHub Tokens</a>).</li>
+              <li>Make sure the <span class="badge-scope">repo</span> scope checkbox is <strong>checked</strong>.</li>
+              <li>Click <strong>Generate token</strong> at the bottom, copy your token (<code>ghp_...</code>), and paste it below:</li>
+            </ol>
+          </div>
+
+          <div class="token-input-wrap">
+            <input type="password" id="token" placeholder="Paste GitHub Token (ghp_...)" autocomplete="off" />
+            <button id="connectBtn" class="connect-btn">Connect</button>
+          </div>
         </div>
       </div>
 
@@ -85,7 +82,7 @@
         </label>
         <label class="checkbox-row">
           <input type="checkbox" id="groupByTopic" checked />
-          Group by topic (e.g. Arrays)
+          Group by topic
         </label>
       </div>
       <div class="row">
@@ -106,17 +103,6 @@
         <button id="testBtn" class="secondary">Test connection</button>
       </div>
       <p id="settingsMsg" class="msg"></p>
-
-      <!-- Advanced PAT Input Drawer -->
-      <details class="help">
-        <summary>Advanced / Manual Personal Access Token</summary>
-        <div style="margin-top: 8px;">
-          <label>
-            GitHub Personal Access Token (classic or fine-grained)
-            <input type="password" id="token" placeholder="ghp_..." autocomplete="off" />
-          </label>
-        </div>
-      </details>
     </section>
 
     <section id="tab-activity" class="tab-panel">

@@ -1,5 +1,5 @@
 import { testConnection, fetchIndex } from "../lib/github.js";
-import { startDeviceFlow, pollDeviceToken, fetchUserProfile, DEFAULT_CLIENT_ID } from "../lib/auth.js";
+import { fetchUserProfile } from "../lib/auth.js";
 
 const DEFAULT_SETTINGS = {
   token: "",
@@ -14,6 +14,7 @@ const DEFAULT_SETTINGS = {
 
 const els = {
   token: document.getElementById("token"),
+  connectBtn: document.getElementById("connectBtn"),
   owner: document.getElementById("owner"),
   repo: document.getElementById("repo"),
   branch: document.getElementById("branch"),
@@ -33,22 +34,13 @@ const els = {
   filterResults: document.getElementById("filterResults"),
 
   // Auth Elements
-  signInBtn: document.getElementById("signInBtn"),
   loggedOutView: document.getElementById("loggedOutView"),
-  devicePromptView: document.getElementById("devicePromptView"),
   loggedInView: document.getElementById("loggedInView"),
-  userCodeText: document.getElementById("userCodeText"),
-  copyCodeBtn: document.getElementById("copyCodeBtn"),
-  authUrlLink: document.getElementById("authUrlLink"),
-  deviceStatusText: document.getElementById("deviceStatusText"),
-  cancelAuthBtn: document.getElementById("cancelAuthBtn"),
   userAvatar: document.getElementById("userAvatar"),
   userName: document.getElementById("userName"),
   userLogin: document.getElementById("userLogin"),
   signOutBtn: document.getElementById("signOutBtn"),
 };
-
-let activeAuthPoll = null;
 
 // ---------- Tabs ----------
 document.querySelectorAll(".tab-btn").forEach((btn) => {
@@ -60,10 +52,9 @@ document.querySelectorAll(".tab-btn").forEach((btn) => {
   });
 });
 
-// ---------- Device Flow Auth Handlers ----------
+// ---------- Auth Handlers ----------
 function showAuthState(state) {
   if (els.loggedOutView) els.loggedOutView.style.display = state === "loggedOut" ? "block" : "none";
-  if (els.devicePromptView) els.devicePromptView.style.display = state === "prompt" ? "flex" : "none";
   if (els.loggedInView) els.loggedInView.style.display = state === "loggedIn" ? "flex" : "none";
 }
 
@@ -74,46 +65,27 @@ function renderUserProfile(profile) {
   if (els.userLogin) els.userLogin.textContent = `@${profile.login}`;
 }
 
-els.signInBtn.addEventListener("click", async () => {
-  els.settingsMsg.textContent = "";
-  els.signInBtn.disabled = true;
-  els.signInBtn.textContent = "Connecting to GitHub...";
+async function handleConnect() {
+  const token = (els.token.value || "").trim();
+  if (!token) {
+    els.settingsMsg.textContent = "Please enter a GitHub Personal Access Token.";
+    els.settingsMsg.className = "msg err";
+    return;
+  }
+
+  els.connectBtn.disabled = true;
+  els.connectBtn.textContent = "Verifying…";
+  els.settingsMsg.textContent = "Checking token with GitHub…";
+  els.settingsMsg.className = "msg";
 
   try {
-    const flow = await startDeviceFlow(DEFAULT_CLIENT_ID);
-
-    els.userCodeText.textContent = flow.user_code;
-    els.authUrlLink.href = flow.verification_uri;
-    els.deviceStatusText.textContent = "Waiting for authorization...";
-    showAuthState("prompt");
-
-    // Automatically open the GitHub verification page in a new browser tab
-    if (chrome.tabs && chrome.tabs.create) {
-      chrome.tabs.create({ url: flow.verification_uri });
-    }
-
-    // Start polling GitHub for the token
-    const pollPromise = pollDeviceToken(
-      DEFAULT_CLIENT_ID,
-      flow.device_code,
-      flow.interval,
-      (status) => {
-        if (els.deviceStatusText) els.deviceStatusText.textContent = status;
-      }
-    );
-    activeAuthPoll = pollPromise;
-
-    const { accessToken } = await pollPromise;
-
-    // Save token & fetch profile
-    els.token.value = accessToken;
-    const profile = await fetchUserProfile(accessToken);
-    if (!els.owner.value || els.owner.value === "") {
+    const profile = await fetchUserProfile(token);
+    if (!els.owner.value || els.owner.value.trim() === "") {
       els.owner.value = profile.login;
     }
 
     await chrome.storage.sync.set({
-      token: accessToken,
+      token,
       owner: els.owner.value || profile.login,
       userProfile: profile,
     });
@@ -122,47 +94,43 @@ els.signInBtn.addEventListener("click", async () => {
     showAuthState("loggedIn");
     els.connStatus.classList.remove("err");
     els.connStatus.classList.add("ok");
-    els.settingsMsg.textContent = `Connected as ${profile.login}!`;
+    els.settingsMsg.textContent = `Connected as ${profile.login}! (Token saved)`;
     els.settingsMsg.className = "msg ok";
   } catch (err) {
-    els.settingsMsg.textContent = err.message;
+    els.settingsMsg.textContent = `Connection failed (${err.message}). Check that your token is valid and has 'repo' scope.`;
     els.settingsMsg.className = "msg err";
+    els.connStatus.classList.remove("ok");
+    els.connStatus.classList.add("err");
     showAuthState("loggedOut");
   } finally {
-    els.signInBtn.disabled = false;
-    els.signInBtn.innerHTML = `
-      <svg height="18" width="18" viewBox="0 0 16 16" fill="currentColor">
-        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path>
-      </svg>
-      Sign in with GitHub (1-Click)
-    `;
+    els.connectBtn.disabled = false;
+    els.connectBtn.textContent = "Connect";
   }
-});
+}
 
-els.copyCodeBtn.addEventListener("click", () => {
-  const code = els.userCodeText.textContent;
-  navigator.clipboard.writeText(code).then(() => {
-    els.copyCodeBtn.textContent = "Copied!";
-    setTimeout(() => {
-      els.copyCodeBtn.textContent = "Copy";
-    }, 2000);
+if (els.connectBtn) {
+  els.connectBtn.addEventListener("click", handleConnect);
+}
+
+if (els.token) {
+  els.token.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleConnect();
+    }
   });
-});
+}
 
-els.cancelAuthBtn.addEventListener("click", () => {
-  showAuthState("loggedOut");
-  els.settingsMsg.textContent = "Sign-in cancelled.";
-  els.settingsMsg.className = "msg";
-});
-
-els.signOutBtn.addEventListener("click", async () => {
-  els.token.value = "";
-  await chrome.storage.sync.set({ token: "", userProfile: null });
-  showAuthState("loggedOut");
-  els.connStatus.classList.remove("ok");
-  els.settingsMsg.textContent = "Signed out.";
-  els.settingsMsg.className = "msg";
-});
+if (els.signOutBtn) {
+  els.signOutBtn.addEventListener("click", async () => {
+    els.token.value = "";
+    await chrome.storage.sync.set({ token: "", userProfile: null });
+    showAuthState("loggedOut");
+    els.connStatus.classList.remove("ok");
+    els.settingsMsg.textContent = "Disconnected. Token removed.";
+    els.settingsMsg.className = "msg";
+  });
+}
 
 // ---------- Settings ----------
 async function loadSettings() {

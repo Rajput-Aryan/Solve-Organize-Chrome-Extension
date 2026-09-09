@@ -4,7 +4,7 @@
 
 Solve & Organize is a Chrome extension that watches you solve problems on LeetCode, Codeforces, CodeChef, AtCoder, NeetCode, GeeksforGeeks, and HackerRank — and the moment you get an "Accepted" verdict, it automatically pushes your solution, a clean write-up, and metadata straight into a GitHub repository of your choice. No copy-pasting. No manual commits. No half-finished "I'll organize this later" folder.
 
-![Sign in with GitHub — 1-Click Device Flow](docs/screenshots/popup-main.png)
+![Solve & Organize Extension](images/popup-main.png)
 
 ---
 
@@ -28,18 +28,18 @@ A root-level `index.json` catalogue is kept in sync with every push, so the repo
 
 | Before | After |
 |---|---|
-| ![LeetCode problem before submission](docs/screenshots/leetcode-before.png) | ![LeetCode problem after accepted submission](docs/screenshots/leetcode-after.png) |
+| ![LeetCode problem before submission](images/leetcode-before.png) | ![LeetCode problem after accepted submission](images/leetcode-after.png) |
 
 | Repo before sync | Repo after sync |
 |---|---|
-| ![GitHub repo before](docs/screenshots/github-before.png) | ![GitHub repo after](docs/screenshots/github-after.png) |
+| ![GitHub repo before](images/github-before.png) | ![GitHub repo after](images/github-after.png) |
 
 ---
 
 ## ✨ Features
 
 - **7 platforms supported** — LeetCode, Codeforces, CodeChef, AtCoder, NeetCode, GeeksforGeeks, and HackerRank, each with a purpose-built detector for that site's verdict/UI pattern.
-- **Zero manual token handling** — sign in with a single click via GitHub's official Device Authorization Flow (RFC 8628, the same mechanism used by `gh auth login`). No backend server, no pasting personal access tokens.
+- **Secure GitHub connection** — connect seamlessly with a GitHub Personal Access Token (PAT) with `repo` scope. No backend servers, no third-party databases.
 - **Automatic organization** — every solution lands in a consistent `Platform / Topic / Difficulty / slug` folder structure, with the source file and a generated `README.md` per problem.
 - **Rich, auto-generated write-ups** — each problem README includes badges, a metadata table, the problem statement, examples/constraints, and a complexity-notes section.
 - **Duplicate-safe** — a 3-level check (index.json → repo tree → direct path) means re-solving a problem never creates junk commits.
@@ -52,7 +52,7 @@ A root-level `index.json` catalogue is kept in sync with every push, so the repo
 
 ## 🏗️ How It Works
 
-![Architecture diagram](docs/screenshots/architecture-diagram.png)
+![Architecture diagram](images/architecture-diagram.png)
 
 1. You solve a problem and hit submit.
 2. A content script on that platform detects the "Accepted" verdict and extracts your source code, along with the title, difficulty, topics, and problem statement.
@@ -79,21 +79,25 @@ Then in Chrome:
 2. Enable **Developer mode** (top-right toggle)
 3. Click **Load unpacked** and select the project folder
 
-### 2. Connect your GitHub account
+### 2. Connect your GitHub account (Personal Access Token)
 
-1. Click the extension icon and hit **Sign in with GitHub**
-2. Approve the one-time device code on GitHub's authorization page
-3. You're signed in — your username and avatar appear automatically, no token to copy or paste
+1. Open [GitHub Personal Access Tokens (classic)](https://github.com/settings/tokens) (or click **Generate Token ↗** in the extension popup).
+2. Click **Generate new token (classic)**:
+   - **Note:** `Solve & Organize Extension`
+   - **Expiration:** Set according to your preference (e.g., 90 days or No expiration)
+   - **Scopes:** Check the **`repo`** checkbox (Full control of private and public repositories).
+3. Click **Generate token** at the bottom of the page and copy the generated token (`ghp_...`).
+4. In the extension popup, paste your token and click **Connect**. Your GitHub avatar and username will be verified and connected automatically.
 
 ### 3. Point it at a repository
 
 In the popup's **Settings** tab, set:
-- **Owner** (auto-filled after sign-in)
-- **Repo** — the repository you want solutions pushed to
+- **Repo owner** — your GitHub username (auto-filled after connecting)
+- **Repo name** — the target repository where solutions should be pushed (e.g., `leetcode-solutions` or `dsa-solutions`)
 - **Branch** — defaults to `main`
-- Optional toggles: group by topic, group by difficulty, skip if already exists
+- Optional toggles: Group by topic, Group by difficulty, Skip if already exists
 
-Hit **Test connection**, then **Save**.
+Hit **Test connection**, then **Save settings**.
 
 ### 4. Go solve something
 
@@ -117,7 +121,7 @@ Solve any problem on a supported platform as you normally would. As soon as it's
 
 - **Manifest V3** Chrome Extension (service worker architecture)
 - Vanilla JavaScript — no build step required
-- GitHub REST API + OAuth Device Authorization Flow (RFC 8628)
+- GitHub REST API + Personal Access Token authentication
 - `chrome.storage`, `chrome.alarms`, and `chrome.tabs` APIs
 - Per-platform content scripts (MAIN-world network interception for LeetCode; MutationObserver-based scraping for the rest)
 
@@ -142,3 +146,4 @@ MIT — see [`LICENSE`](LICENSE) for details.
 ---
 
 <p align="center">Built by <a href="https://github.com/Rajput-Aryan">Aryan Rajput</a></p>
+
