@@ -8,6 +8,8 @@
 
   let currentSlug = getSlugFromUrl();
   let isHandlingSubmission = false;
+  let isSubmitPending = false;
+  let submitTimestamp = 0;
   let lastAcceptedTime = 0;
 
   // SPA navigation tracking (pushState / replaceState / popstate)
@@ -16,6 +18,7 @@
     if (newSlug !== currentSlug) {
       currentSlug = newSlug;
       isHandlingSubmission = false;
+      isSubmitPending = false;
     }
   }
 
@@ -35,20 +38,72 @@
 
   window.addEventListener("popstate", handleUrlChange);
 
+  // Track explicit button clicks on the page to distinguish Submit from Run Code
+  document.addEventListener("click", (e) => {
+    const btn = e.target && e.target.closest ? e.target.closest("button, [role='button'], div, span") : null;
+    if (btn) {
+      const text = (btn.textContent || "").trim().toLowerCase();
+      const locator = (btn.getAttribute("data-e2e-locator") || "").toLowerCase();
+      const trackLoad = (btn.getAttribute("data-track-load") || "").toLowerCase();
+
+      if (
+        locator.includes("submit") ||
+        trackLoad.includes("submit") ||
+        text === "submit" ||
+        text.startsWith("submit")
+      ) {
+        isSubmitPending = true;
+        submitTimestamp = Date.now();
+        console.log("[Solve & Organize] Submit button clicked — listening for final submission result...");
+      } else if (
+        locator.includes("run") ||
+        trackLoad.includes("run") ||
+        text === "run" ||
+        text === "run code" ||
+        text.startsWith("run")
+      ) {
+        isSubmitPending = false;
+        console.log("[Solve & Organize] Run code clicked — ignoring test case results.");
+      }
+    }
+  }, true);
+
   // 1. Network Interception: Fetch
   const origFetch = window.fetch;
   window.fetch = async function (...args) {
     const response = await origFetch.apply(this, args);
     try {
       const url = typeof args[0] === "string" ? args[0] : (args[0] && args[0].url) || "";
+      const reqBody = args[1] && args[1].body ? String(args[1].body) : "";
 
-      // REST Polling Endpoint
+      // Detect Submit vs Run Code initiation
+      if (url.includes("/submit/") || reqBody.includes("submitCode") || reqBody.includes("submitQuestion")) {
+        isSubmitPending = true;
+        submitTimestamp = Date.now();
+        console.log("[Solve & Organize] Full submission request initiated.");
+      } else if (url.includes("/interpret_solution/") || reqBody.includes("interpretSolution") || reqBody.includes("runCode")) {
+        isSubmitPending = false;
+        console.log("[Solve & Organize] Run testcase interpretation request initiated — ignoring.");
+      }
+
+      // REST Polling Endpoint for submissions
       if (url.includes("/submissions/detail/") && url.includes("/check/")) {
         response
           .clone()
           .json()
           .then((data) => {
-            if (data && (data.status_msg === "Accepted" || data.status_code === 10)) {
+            // Strictly reject Run Code (interpret) responses
+            if (!data || data.interpret_id || data.run_success !== undefined) {
+              return;
+            }
+
+            // Only trigger if an actual submission was initiated and passed
+            if (
+              isSubmitPending &&
+              Date.now() - submitTimestamp < 60000 &&
+              (data.status_msg === "Accepted" || data.status_code === 10)
+            ) {
+              isSubmitPending = false;
               handleAccepted({
                 runtime: data.status_runtime,
                 memory: data.status_memory,
@@ -62,12 +117,12 @@
 
       // GraphQL Submissions & Progress
       if (url.includes("/graphql")) {
-        const reqBody = args[1] && args[1].body ? String(args[1].body) : "";
         if (
-          reqBody.includes("submission") ||
-          reqBody.includes("submitCode") ||
-          reqBody.includes("checkSubmissionStatus") ||
-          reqBody.includes("submissionDetails")
+          isSubmitPending &&
+          Date.now() - submitTimestamp < 60000 &&
+          (reqBody.includes("submissionDetails") ||
+            reqBody.includes("submitCode") ||
+            reqBody.includes("checkSubmissionStatus"))
         ) {
           response
             .clone()
@@ -78,12 +133,16 @@
                 res?.data?.submissionStatus ||
                 res?.data?.submitCode ||
                 res?.data?.userSubmission;
+
+              // Ensure it's not a run code result
               if (
                 sub &&
+                !sub.interpretId &&
                 (sub.statusDisplay === "Accepted" ||
                   sub.status_msg === "Accepted" ||
                   sub.statusCode === 10)
               ) {
+                isSubmitPending = false;
                 handleAccepted({
                   runtime: sub.runtimeDisplay || sub.status_runtime,
                   memory: sub.memoryDisplay || sub.status_memory,
@@ -107,6 +166,12 @@
 
   XMLHttpRequest.prototype.open = function (method, url, ...rest) {
     this._reqUrl = url || "";
+    if (this._reqUrl.includes("/submit/")) {
+      isSubmitPending = true;
+      submitTimestamp = Date.now();
+    } else if (this._reqUrl.includes("/interpret_solution/")) {
+      isSubmitPending = false;
+    }
     return origOpen.apply(this, [method, url, ...rest]);
   };
 
@@ -116,13 +181,20 @@
         const url = this._reqUrl || "";
         if (url.includes("/submissions/detail/") && url.includes("/check/")) {
           const data = JSON.parse(this.responseText);
-          if (data && (data.status_msg === "Accepted" || data.status_code === 10)) {
-            handleAccepted({
-              runtime: data.status_runtime,
-              memory: data.status_memory,
-              lang: data.lang,
-              code: data.code,
-            });
+          if (data && !data.interpret_id && data.run_success === undefined) {
+            if (
+              isSubmitPending &&
+              Date.now() - submitTimestamp < 60000 &&
+              (data.status_msg === "Accepted" || data.status_code === 10)
+            ) {
+              isSubmitPending = false;
+              handleAccepted({
+                runtime: data.status_runtime,
+                memory: data.status_memory,
+                lang: data.lang,
+                code: data.code,
+              });
+            }
           }
         }
       } catch (e) {}
@@ -130,17 +202,18 @@
     return origSend.apply(this, args);
   };
 
-  // 3. DOM MutationObserver Backup: Detects "Accepted" status on specific submission result elements
+  // 3. DOM MutationObserver Backup: Only triggers if a submission was pending
   const domObserver = new MutationObserver(() => {
-    if (isHandlingSubmission || Date.now() - lastAcceptedTime < 10000) return;
+    if (!isSubmitPending || isHandlingSubmission || Date.now() - submitTimestamp > 60000 || Date.now() - lastAcceptedTime < 10000) {
+      return;
+    }
 
     const resultBanner =
       document.querySelector('[data-e2e-locator="submission-result"]') ||
-      document.querySelector('span[data-e2e-locator="submission-result"]') ||
-      document.querySelector('[class*="submission-status"] [class*="green"]') ||
-      document.querySelector('[class*="result-status"]');
+      document.querySelector('span[data-e2e-locator="submission-result"]');
 
     if (resultBanner && resultBanner.textContent && resultBanner.textContent.trim().toLowerCase() === "accepted") {
+      isSubmitPending = false;
       handleAccepted();
     }
   });
