@@ -1,8 +1,6 @@
 // Runs in the PAGE's own JS context (world: "MAIN") so it can see LeetCode's
-// window.fetch calls and, where available, the Monaco editor instance.
-// It never talks to chrome.* APIs directly — it hands data off via
-// window.postMessage to leetcode-bridge.js, which runs in the isolated
-// content-script world and forwards it to the background service worker.
+// network calls (fetch/XHR), Monaco editor instances, and DOM state.
+// Relays accepted solutions via window.postMessage to leetcode-bridge.js.
 
 (function () {
   if (window.__lcOrganizerInstalled) return;
@@ -10,6 +8,7 @@
 
   let currentSlug = getSlugFromUrl();
   let isHandlingSubmission = false;
+  let lastAcceptedTime = 0;
 
   // SPA navigation tracking (pushState / replaceState / popstate)
   function handleUrlChange() {
@@ -36,14 +35,14 @@
 
   window.addEventListener("popstate", handleUrlChange);
 
-  // Network Interception: handles both REST polling and GraphQL submissions
+  // 1. Network Interception: Fetch
   const origFetch = window.fetch;
   window.fetch = async function (...args) {
     const response = await origFetch.apply(this, args);
     try {
       const url = typeof args[0] === "string" ? args[0] : (args[0] && args[0].url) || "";
 
-      // 1. REST Endpoint: Polling while checking submission
+      // REST Polling Endpoint
       if (url.includes("/submissions/detail/") && url.includes("/check/")) {
         response
           .clone()
@@ -61,13 +60,14 @@
           .catch(() => {});
       }
 
-      // 2. GraphQL Endpoint: Modern LeetCode submission status / details
+      // GraphQL Submissions & Progress
       if (url.includes("/graphql")) {
         const reqBody = args[1] && args[1].body ? String(args[1].body) : "";
         if (
-          reqBody.includes("submissionDetails") ||
+          reqBody.includes("submission") ||
           reqBody.includes("submitCode") ||
-          reqBody.includes("checkSubmissionStatus")
+          reqBody.includes("checkSubmissionStatus") ||
+          reqBody.includes("submissionDetails")
         ) {
           response
             .clone()
@@ -76,7 +76,8 @@
               const sub =
                 res?.data?.submissionDetails ||
                 res?.data?.submissionStatus ||
-                res?.data?.submitCode;
+                res?.data?.submitCode ||
+                res?.data?.userSubmission;
               if (
                 sub &&
                 (sub.statusDisplay === "Accepted" ||
@@ -100,6 +101,52 @@
     return response;
   };
 
+  // 2. Network Interception: XMLHttpRequest
+  const origOpen = XMLHttpRequest.prototype.open;
+  const origSend = XMLHttpRequest.prototype.send;
+
+  XMLHttpRequest.prototype.open = function (method, url, ...rest) {
+    this._reqUrl = url || "";
+    return origOpen.apply(this, [method, url, ...rest]);
+  };
+
+  XMLHttpRequest.prototype.send = function (...args) {
+    this.addEventListener("load", function () {
+      try {
+        const url = this._reqUrl || "";
+        if (url.includes("/submissions/detail/") && url.includes("/check/")) {
+          const data = JSON.parse(this.responseText);
+          if (data && (data.status_msg === "Accepted" || data.status_code === 10)) {
+            handleAccepted({
+              runtime: data.status_runtime,
+              memory: data.status_memory,
+              lang: data.lang,
+              code: data.code,
+            });
+          }
+        }
+      } catch (e) {}
+    });
+    return origSend.apply(this, args);
+  };
+
+  // 3. DOM MutationObserver Backup: Detects "Accepted" banner on DOM directly
+  const domObserver = new MutationObserver(() => {
+    if (isHandlingSubmission || Date.now() - lastAcceptedTime < 5000) return;
+
+    const resultBanner =
+      document.querySelector('[data-e2e-locator="submission-result"]') ||
+      document.querySelector('span[data-e2e-locator="submission-result"]') ||
+      document.querySelector('div[class*="result"]') ||
+      document.querySelector('div[class*="text-green"]');
+
+    if (resultBanner && resultBanner.textContent && resultBanner.textContent.trim().toLowerCase() === "accepted") {
+      handleAccepted();
+    }
+  });
+
+  domObserver.observe(document.documentElement, { childList: true, subtree: true });
+
   function getTitle() {
     const el =
       document.querySelector('[data-cy="question-title"]') ||
@@ -111,7 +158,7 @@
   }
 
   function getSlugFromUrl() {
-    const m = window.location.pathname.match(/\/problems\/([^/]+)/);
+    const m = window.location.pathname.match(/\/problems\/([^/?#]+)/);
     return m ? m[1] : "unknown-problem";
   }
 
@@ -150,6 +197,9 @@
   }
 
   function getCode(fallbackCode) {
+    if (fallbackCode && fallbackCode.trim()) return fallbackCode;
+
+    // 1. Monaco Editor Models
     try {
       if (window.monaco && window.monaco.editor) {
         const models = window.monaco.editor.getModels();
@@ -160,6 +210,17 @@
         }
       }
     } catch (e) {}
+
+    // 2. Monaco Editor View Lines DOM
+    const monacoLines = document.querySelectorAll(".monaco-editor .view-line");
+    if (monacoLines && monacoLines.length > 0) {
+      const code = Array.from(monacoLines)
+        .map((l) => l.textContent.replace(/\u00a0/g, " "))
+        .join("\n");
+      if (code.trim().length > 5) return code;
+    }
+
+    // 3. CodeMirror
     try {
       const cmEl = document.querySelector(".CodeMirror");
       if (cmEl && cmEl.CodeMirror) {
@@ -167,7 +228,7 @@
         if (val && val.trim()) return val;
       }
     } catch (e) {}
-    if (fallbackCode && fallbackCode.trim()) return fallbackCode;
+
     return null;
   }
 
@@ -224,7 +285,11 @@
 
   function handleAccepted(extraData = {}) {
     if (isHandlingSubmission) return;
+    const now = Date.now();
+    if (now - lastAcceptedTime < 4000) return;
+
     isHandlingSubmission = true;
+    lastAcceptedTime = now;
 
     // Small delay so DOM and editor settle after judging completes
     setTimeout(() => {
@@ -248,10 +313,10 @@
         window.location.origin
       );
 
-      // Reset submission flag after 3 seconds
+      // Reset submission flag after 3.5 seconds
       setTimeout(() => {
         isHandlingSubmission = false;
-      }, 3000);
-    }, 800);
+      }, 3500);
+    }, 700);
   }
 })();

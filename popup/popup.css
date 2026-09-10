@@ -354,3 +354,27 @@ button.secondary {
   background: rgba(248, 81, 73, 0.1);
 }
 
+.repo-action-card {
+  background: #161b22;
+  border: 1px solid #d29922;
+  border-radius: 6px;
+  padding: 10px;
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.repo-action-text {
+  margin: 0;
+  font-size: 11.5px;
+  color: #e3b341;
+  line-height: 1.4;
+}
+
+.create-repo-btn {
+  width: 100%;
+  font-weight: 600;
+  padding: 8px;
+}
+

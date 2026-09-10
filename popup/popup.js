@@ -1,4 +1,4 @@
-import { testConnection, fetchIndex } from "../lib/github.js";
+import { testConnection, fetchIndex, createRepo } from "../lib/github.js";
 import { fetchUserProfile } from "../lib/auth.js";
 
 const DEFAULT_SETTINGS = {
@@ -32,6 +32,11 @@ const els = {
   topicSelect: document.getElementById("topicSelect"),
   diffSelect: document.getElementById("diffSelect"),
   filterResults: document.getElementById("filterResults"),
+
+  // Repo Action Elements
+  repoActionCard: document.getElementById("repoActionCard"),
+  repoActionMsg: document.getElementById("repoActionMsg"),
+  createRepoBtn: document.getElementById("createRepoBtn"),
 
   // Auth Elements
   loggedOutView: document.getElementById("loggedOutView"),
@@ -129,6 +134,7 @@ if (els.signOutBtn) {
     els.connStatus.classList.remove("ok");
     els.settingsMsg.textContent = "Disconnected. Token removed.";
     els.settingsMsg.className = "msg";
+    if (els.repoActionCard) els.repoActionCard.style.display = "none";
   });
 }
 
@@ -182,17 +188,20 @@ function currentSettings() {
 els.saveBtn.addEventListener("click", async () => {
   const settings = currentSettings();
   await chrome.storage.sync.set(settings);
-  els.settingsMsg.textContent = "Saved.";
+  els.settingsMsg.textContent = "Saved settings.";
   els.settingsMsg.className = "msg ok";
+  if (els.repoActionCard) els.repoActionCard.style.display = "none";
 });
 
 els.testBtn.addEventListener("click", async () => {
   const settings = currentSettings();
-  els.settingsMsg.textContent = "Checking…";
+  if (els.repoActionCard) els.repoActionCard.style.display = "none";
+
+  els.settingsMsg.textContent = "Checking connection…";
   els.settingsMsg.className = "msg";
   try {
     const { login } = await testConnection(settings);
-    els.settingsMsg.textContent = `Connected as ${login}. Repo access confirmed.`;
+    els.settingsMsg.textContent = `Connected as ${login}. Repo access confirmed!`;
     els.settingsMsg.className = "msg ok";
     els.connStatus.classList.remove("err");
     els.connStatus.classList.add("ok");
@@ -201,8 +210,36 @@ els.testBtn.addEventListener("click", async () => {
     els.settingsMsg.className = "msg err";
     els.connStatus.classList.remove("ok");
     els.connStatus.classList.add("err");
+
+    if (err.repoNotFound && els.repoActionCard && els.repoActionMsg) {
+      els.repoActionMsg.textContent = `Repository '${settings.owner}/${settings.repo}' does not exist on your GitHub yet.`;
+      els.repoActionCard.style.display = "flex";
+    }
   }
 });
+
+if (els.createRepoBtn) {
+  els.createRepoBtn.addEventListener("click", async () => {
+    const settings = currentSettings();
+    els.createRepoBtn.disabled = true;
+    els.createRepoBtn.textContent = "Creating on GitHub…";
+    try {
+      await createRepo(settings, false);
+      els.repoActionCard.style.display = "none";
+      els.settingsMsg.textContent = `Repository '${settings.repo}' created successfully! Access confirmed.`;
+      els.settingsMsg.className = "msg ok";
+      els.connStatus.classList.remove("err");
+      els.connStatus.classList.add("ok");
+      await chrome.storage.sync.set(settings);
+    } catch (err) {
+      els.settingsMsg.textContent = `Failed to create repo: ${err.message}`;
+      els.settingsMsg.className = "msg err";
+    } finally {
+      els.createRepoBtn.disabled = false;
+      els.createRepoBtn.textContent = "Create Repository on GitHub (1-Click)";
+    }
+  });
+}
 
 // ---------- Activity ----------
 function renderActivity(activityLog, pendingQueue = []) {

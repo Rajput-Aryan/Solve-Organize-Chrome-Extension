@@ -101,7 +101,33 @@ Hit **Test connection**, then **Save settings**.
 
 ### 4. Go solve something
 
-Solve any problem on a supported platform as you normally would. As soon as it's accepted, watch it show up in your repo.
+Solve any problem on a supported platform as you normally would. As soon as it's accepted, watch it show up in your repo!
+
+---
+
+## 💡 Troubleshooting & FAQs
+
+<details>
+<summary><strong>1. "Repository not found" or pushing fails?</strong></summary>
+
+- Make sure you typed the exact repo name you want in the extension popup.
+- If the repository does not exist on your GitHub account yet, click the **"Create Repository on GitHub (1-Click)"** button directly in the popup, or click **Test connection** to confirm access.
+</details>
+
+<details>
+<summary><strong>2. "Token is missing the repo scope"?</strong></summary>
+
+- Go to [GitHub Personal Access Tokens](https://github.com/settings/tokens).
+- Edit your token (or generate a new classic token) and make sure the **`repo`** checkbox (Full control of repositories) is selected.
+</details>
+
+<details>
+<summary><strong>3. Solved a problem but didn't see the sync toast?</strong></summary>
+
+- Check that the extension is enabled in `chrome://extensions`.
+- Click the extension icon and check the **Activity** tab to see recent push logs, duplicate skips, or pending retries.
+- Reload the problem webpage if you just installed the extension so content scripts are active on that tab.
+</details>
 
 ---
 
@@ -123,7 +149,7 @@ Solve any problem on a supported platform as you normally would. As soon as it's
 - Vanilla JavaScript — no build step required
 - GitHub REST API + Personal Access Token authentication
 - `chrome.storage`, `chrome.alarms`, and `chrome.tabs` APIs
-- Per-platform content scripts (MAIN-world network interception for LeetCode; MutationObserver-based scraping for the rest)
+- Multi-layered content scripts (Network interception + MutationObserver scraping)
 
 ---
 
