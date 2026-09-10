@@ -130,15 +130,15 @@
     return origSend.apply(this, args);
   };
 
-  // 3. DOM MutationObserver Backup: Detects "Accepted" banner on DOM directly
+  // 3. DOM MutationObserver Backup: Detects "Accepted" status on specific submission result elements
   const domObserver = new MutationObserver(() => {
-    if (isHandlingSubmission || Date.now() - lastAcceptedTime < 5000) return;
+    if (isHandlingSubmission || Date.now() - lastAcceptedTime < 10000) return;
 
     const resultBanner =
       document.querySelector('[data-e2e-locator="submission-result"]') ||
       document.querySelector('span[data-e2e-locator="submission-result"]') ||
-      document.querySelector('div[class*="result"]') ||
-      document.querySelector('div[class*="text-green"]');
+      document.querySelector('[class*="submission-status"] [class*="green"]') ||
+      document.querySelector('[class*="result-status"]');
 
     if (resultBanner && resultBanner.textContent && resultBanner.textContent.trim().toLowerCase() === "accepted") {
       handleAccepted();

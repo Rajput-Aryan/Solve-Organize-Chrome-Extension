@@ -147,8 +147,35 @@ async function handleSubmission(data, sender) {
   return result;
 }
 
+const recentSubmissions = new Map();
+
+function isDuplicateSubmission(data) {
+  if (!data || !data.platform || !data.slug) return false;
+  const key = `${data.platform}:${data.slug}`;
+  const now = Date.now();
+  const lastTime = recentSubmissions.get(key) || 0;
+  if (now - lastTime < 10000) {
+    // Drop duplicate events within 10 seconds
+    return true;
+  }
+  recentSubmissions.set(key, now);
+  // Periodically cleanup map
+  if (recentSubmissions.size > 100) {
+    for (const [k, time] of recentSubmissions.entries()) {
+      if (now - time > 60000) recentSubmissions.delete(k);
+    }
+  }
+  return false;
+}
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message && message.type === "SUBMISSION_ACCEPTED") {
+    if (isDuplicateSubmission(message.data)) {
+      console.log("[Solve & Organize] Duplicate submission ignored (debounced):", message.data.slug);
+      sendResponse({ ok: true, duplicate: true });
+      return false;
+    }
+
     handleSubmission(message.data, sender)
       .then((result) => sendResponse({ ok: true, result }))
       .catch(async (err) => {

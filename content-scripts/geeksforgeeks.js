@@ -92,7 +92,7 @@
     // 1. Scrape explicit topic tags from DOM
     document
       .querySelectorAll(
-        'a[href*="/topics/"], a[href*="/tag/"], a[href*="/category/"], .topic-tag, [class*="topic"] a, [class*="Tag"]'
+        'a[href*="/topics/"], a[href*="/tag/"], a[href*="/category/"], a[href*="/explore?category"], .topic-tag, [class*="topic"] a, [class*="Tag"]'
       )
       .forEach((a) => {
         const t = a.textContent.trim();
@@ -105,18 +105,19 @@
 
     // 2. Fallback: Infer topic from problem slug / title keywords
     const text = (getSlug() + " " + getTitle()).toLowerCase();
-    if (text.includes("array") || text.includes("elements") || text.includes("subarray")) topics.add("Arrays");
-    else if (text.includes("string") || text.includes("palindrome") || text.includes("anagram")) topics.add("Strings");
-    else if (text.includes("linked-list") || text.includes("linkedlist") || text.includes("node")) topics.add("Linked List");
-    else if (text.includes("tree") || text.includes("bst") || text.includes("binary")) topics.add("Trees");
-    else if (text.includes("graph") || text.includes("bfs") || text.includes("dfs")) topics.add("Graph");
-    else if (text.includes("dp") || text.includes("dynamic") || text.includes("knapsack")) topics.add("Dynamic Programming");
-    else if (text.includes("stack") || text.includes("queue")) topics.add("Stack & Queue");
-    else if (text.includes("matrix")) topics.add("Matrix");
-    else if (text.includes("sort") || text.includes("search")) topics.add("Sorting & Searching");
-    else if (text.includes("math") || text.includes("sum") || text.includes("prime") || text.includes("number")) topics.add("Mathematical");
+    if (/(string|char|palindrome|anagram|substring|subsequence|prefix|suffix|roman|parenthes|vowel|consonant|word)/i.test(text)) topics.add("Strings");
+    else if (/(linked[\s-]?list|linkedlist|node)/i.test(text)) topics.add("Linked List");
+    else if (/(tree|bst|binary[\s-]?tree|trie)/i.test(text)) topics.add("Trees");
+    else if (/(graph|bfs|dfs|dijkstra|topological)/i.test(text)) topics.add("Graph");
+    else if (/(dp|dynamic[\s-]?programming|knapsack|fibonacci)/i.test(text)) topics.add("Dynamic Programming");
+    else if (/(stack|queue|deque)/i.test(text)) topics.add("Stack & Queue");
+    else if (/(matrix|grid|2d[\s-]?array)/i.test(text)) topics.add("Matrix");
+    else if (/(sort|sorting|binary[\s-]?search|search)/i.test(text)) topics.add("Sorting & Searching");
+    else if (/(hash|map|set|frequency)/i.test(text)) topics.add("Hash Table");
+    else if (/(\barray\b|\barrays\b|subarray|subarrays|two[\s-]?pointer|sliding[\s-]?window)/i.test(text)) topics.add("Arrays");
+    else if (/(math|mathematical|prime|sum|number)/i.test(text)) topics.add("Mathematical");
 
-    return topics.size > 0 ? Array.from(topics) : ["Arrays"];
+    return Array.from(topics);
   }
 
   const LANGUAGE_MAP = {
@@ -301,14 +302,17 @@
     return false;
   }
 
+  let lastSubmissionTime = 0;
+
   const observer = new MutationObserver(() => {
-    if (notified) return;
+    if (notified || Date.now() - lastSubmissionTime < 10000) return;
     const resultEl =
-      document.querySelector("[class*='result'], [class*='Result'], [class*='submission']") || document.body;
+      document.querySelector("[class*='result'], [class*='Result'], [class*='submission']");
     const text = resultEl ? resultEl.innerText : "";
 
-    if (isAcceptedSubmission(text)) {
+    if (text && isAcceptedSubmission(text)) {
       notified = true;
+      lastSubmissionTime = Date.now();
       console.log("[Solve & Organize] Verified ACCEPTED submission on GFG!");
       setTimeout(sendAccepted, 700);
     }
